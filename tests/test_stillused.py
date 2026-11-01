@@ -119,6 +119,28 @@ class ScanTest(ScanBase):
         self.assertEqual(found["orders.gift_note"]["kind"], "still-used")
         self.assertIn("app/a.py:1", found["orders.discount_code"]["places"])
 
+    def test_multiline_sql_is_direct_evidence(self):
+        self.write({"migrations/1.sql": "ALTER TABLE orders DROP COLUMN discount_code;\n",
+                    "app/a.py": 'db.run("""\nSELECT discount_code\nFROM orders\n""")\n',
+                    "app/b.py": 'db.run("""\nselect\n    discount_code\nfrom\n    orders\n""")\n'})
+        code, found, _ = self.found()
+        self.assertEqual(code, s.EXIT_FINDINGS)
+        self.assertEqual(found["orders.discount_code"]["kind"], "still-used")
+        self.assertIn("app/a.py:2", found["orders.discount_code"]["places"])
+        self.assertIn("app/b.py:3", found["orders.discount_code"]["places"])
+
+    def test_assignment_beside_a_query_is_not_direct(self):
+        self.write({"migrations/1.sql": "ALTER TABLE orders DROP COLUMN discount_code;\n",
+                    "app/a.py": 'discount_code = "hello"\ndb.run("SELECT id FROM orders")\n'})
+        code, found, _ = self.found()
+        self.assertEqual(found["orders.discount_code"]["kind"], "maybe-used")
+        self.assertEqual(code, s.EXIT_OK)
+
+    def test_common_name_in_multiline_sql(self):
+        self.write({"migrations/1.sql": "ALTER TABLE orders DROP COLUMN status;\n",
+                    "app/q.py": 'db.run("""\nSELECT\n    status\nFROM orders\n""")\n'})
+        self.assertEqual(self.found()[1]["orders.status"]["kind"], "still-used")
+
     def test_name_away_from_its_table_is_only_possible(self):
         self.write({"migrations/1.sql": "ALTER TABLE orders DROP COLUMN gift_note;\n", "app/other.py": "gift_note = 1\n"})
         code, found, _ = self.found()

@@ -25,6 +25,14 @@ CODE_SUFFIXES = {".go", ".py", ".rb", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cj
 COMMON_NAMES = {"id", "name", "type", "status", "value", "data", "key", "title", "state", "url", "email", "description", "created_at", "updated_at", "deleted_at", "createdat", "updatedat", "user_id", "userid", "code", "active", "enabled", "count", "version", "position", "label", "content", "body", "token"}
 # Uppercase, or a lowercase select with its from, because "from" alone is also a JavaScript import.
 SQL_WORDS = re.compile(r"\b(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|WHERE|JOIN|FROM|ORDER\s+BY|GROUP\s+BY)\b|\bselect\b.*\bfrom\b|\binsert\s+into\b|\bupdate\s+\w+\s+set\b|\bdelete\s+from\b")
+NEARBY = 3  # lines of one query; a blank line starts another statement
+CODE_STATEMENT = re.compile(r"^\s*(?:const|let|var|return|import|def|class|function|if|for|while|switch)\b")
+ASSIGNMENT = re.compile(r"^\s*[\w.]+\s*=")
+# Where a query continues. Used only after SQL_WORDS has already matched the nearby lines.
+SQL_CLAUSE = re.compile(r"(?i)\b(?:select|insert|update|delete|from|where|join|set|into)\b")
+BARE_NAME = re.compile(r'[`"\[]?\w+[`"\]]?')
+LEADING_CLAUSE = re.compile(r"(?i)\s*(?:from|join|update|into|table)\b")
+CLAUSE_WITH_NAME = re.compile(r"(?i)\b(?:from|join|update|into|table)\s+\w+")
 # Lines that exist to let a column go, such as Rails' ignored_columns, aren't uses of it.
 SAFE_REMOVAL = re.compile(r"ignored_columns|ignore_column|@Ignore|remove_column|drop_column")
 IDENT = r'[`"\[]?(\w+)[`"\]]?'
@@ -225,6 +233,58 @@ def table_mentioned(text, table):
     return bare in lower or singular(table).replace("_", "") in lower
 
 
+def sql_clause(text):
+    if CODE_STATEMENT.search(text):
+        return False
+    return bool(SQL_WORDS.search(text) or SQL_CLAUSE.search(text))
+
+
+def nearby_lines(lines, index):
+    """A few lines around a match. A blank line ends the query."""
+    start = index
+    for _ in range(NEARBY):
+        if start == 0 or not lines[start - 1].strip():
+            break
+        start -= 1
+    end = index + 1
+    for _ in range(NEARBY):
+        if end >= len(lines) or not lines[end].strip():
+            break
+        end += 1
+    return lines[start:end], index - start
+
+
+def table_reference(window, index, table):
+    """A nearby line that names the table in a query, including the line after FROM."""
+    text = window[index]
+    if not table_mentioned(text, table) or CODE_STATEMENT.search(text) or ASSIGNMENT.search(text):
+        return False
+    if sql_clause(text):
+        return True
+    bare = BARE_NAME.fullmatch(text.strip().strip(",;"))
+    previous = window[index - 1] if index else ""
+    return bool(bare and LEADING_CLAUSE.match(previous) and not CLAUSE_WITH_NAME.search(previous))
+
+
+def nearby_sql(lines, index, table):
+    """True when this column sits in a query that names its table on a nearby line."""
+    window, rel = nearby_lines(lines, index)
+    line = window[rel]
+    if CODE_STATEMENT.search(line) or not SQL_WORDS.search(" ".join(window)):
+        return False
+    tables = [i for i, _text in enumerate(window) if table_reference(window, i, table)]
+    if not tables:
+        return False
+    if sql_clause(line):
+        return True
+    for marker in (i for i, text in enumerate(window) if sql_clause(text)):
+        for table_at in tables:
+            lo, hi = min(marker, table_at), max(marker, table_at)
+            if lo <= rel <= hi and not any(CODE_STATEMENT.search(window[i]) for i in range(lo, hi + 1)):
+                return True
+    return False
+
+
 def walk(root):
     for folder, subfolders, files in os.walk(root):
         subfolders[:] = [name for name in subfolders if name not in SKIP_DIRS and not name.startswith(".")]
@@ -297,7 +357,8 @@ def search(code, change, spell):
         if not pattern.search(text):
             continue
         in_file = is_table or table_mentioned(text, change.table)
-        for number, line in enumerate(text.splitlines(), 1):
+        lines = text.splitlines()
+        for number, line in enumerate(lines, 1):
             if not pattern.search(line):
                 continue
             if SAFE_REMOVAL.search(line):
@@ -306,6 +367,8 @@ def search(code, change, spell):
             if SCHEMA_FILE.search(relative):
                 schema.append(place)
             elif SQL_WORDS.search(line) and (is_table or table_mentioned(line, change.table)):
+                likely.append(place)
+            elif not is_table and nearby_sql(lines, number - 1, change.table):
                 likely.append(place)
             elif not is_table and direct_access(line, change.table, spell):
                 likely.append(place)

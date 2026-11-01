@@ -4,6 +4,9 @@ All notable changes are documented here, in [Keep a Changelog](https://keepachan
 
 ## [Unreleased]
 
+### Fixed
+- Multi-line SQL counts as direct evidence when a nearby line names the table.
+
 ## [0.1.0] - 2026-11-01
 
 ### Added

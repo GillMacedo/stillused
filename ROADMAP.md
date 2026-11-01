@@ -2,7 +2,6 @@
 
 ## Next
 - More ORM forms, such as Ecto, Flyway naming and Sequelize
-- Multi-line SQL strings count as direct evidence
 - A check for renames that write to only one column
 
 ## Later
