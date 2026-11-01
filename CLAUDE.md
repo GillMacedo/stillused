@@ -20,4 +20,4 @@ Claude Code skill and CLI that finds columns and tables migrations drop or renam
 - Don't say a drop is safe.
 
 ## Definition of done
-`make test` and `make lint` pass, and `CHANGELOG.md`, `ROADMAP.md` and docs are updated when relevant.
+`make test` and `make lint` pass, and `ROADMAP.md` and docs are updated when relevant.
