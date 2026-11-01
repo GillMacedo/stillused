@@ -1,0 +1,14 @@
+{
+  "name": "stillused-marketplace",
+  "description": "Marketplace for stillused, which finds dropped columns that code still uses.",
+  "owner": {
+    "name": "Giulliano Macedo"
+  },
+  "plugins": [
+    {
+      "name": "stillused",
+      "source": "./plugin",
+      "description": "Find columns and tables that migrations drop or rename while code still uses them. Reads files only."
+    }
+  ]
+}

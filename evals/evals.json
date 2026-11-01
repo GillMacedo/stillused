@@ -1,0 +1,28 @@
+[
+  {
+    "skills": ["checking-schema-drops"],
+    "query": "Is it safe to merge this migration that drops orders.discount_code?",
+    "expected_behavior": [
+      "Runs stillused.py on the repo",
+      "Reads each reference to confirm it's the same column",
+      "Doesn't run the migration or connect to a database"
+    ]
+  },
+  {
+    "skills": ["checking-schema-drops"],
+    "query": "I removed the code that used this column and dropped it in the same PR. All good?",
+    "expected_behavior": [
+      "Runs the script with --since",
+      "Explains that old pods still use the column during a rollout",
+      "Suggests shipping the code first and the drop in a later release"
+    ]
+  },
+  {
+    "skills": ["checking-schema-drops"],
+    "query": "The tool found no references, so nothing uses this column, right?",
+    "expected_behavior": [
+      "Says that doesn't prove it",
+      "Names other services, reports and dynamic queries as things it can't see"
+    ]
+  }
+]
