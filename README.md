@@ -76,8 +76,8 @@ It reads SQL (including Prisma, goose and dbmate), Rails, Django, Alembic, Knex 
 ## Limits
 
 - **No references doesn't mean safe.** It can't see other services, reports, dynamic queries or anything built at runtime.
-- **It compares names in text.** A field with the same name on another model can show as `maybe-used`, and multi-line SQL often lands there too rather than as `still-used`.
-- **Very common names,** like `status`, are ignored unless the table's name is on the same line.
+- **It compares names in text.** A field with the same name on another model can show as `maybe-used`.
+- **Very common names,** like `status`, are ignored unless the table's name is on the same line or a nearby line of the same query.
 - **Rails' `ignored_columns`** doesn't count as a use, because it's how a column is safely removed.
 - Tests, `vendor`, `node_modules` and other migrations aren't searched.
 

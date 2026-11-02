@@ -5,7 +5,7 @@
     removed_in_diff --> with --since, code removed in the same change
     render_* --> text, Markdown or JSON
 
-- **High severity** needs SQL naming the table, or direct access like `order.gift_note`.
+- **High severity** needs SQL naming the table, including across a few nearby lines, or direct access like `order.gift_note`.
 - **Spellings** cover `snake_case`, `camelCase` and `PascalCase`, since ORMs map between them.
 - **Older migrations** are left out by default, because old names are often reused.
 
